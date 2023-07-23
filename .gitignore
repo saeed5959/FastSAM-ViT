@@ -3,3 +3,7 @@ pretrain/
 dataset/
 
 output/
+
+runs/
+
+__pycache__/
