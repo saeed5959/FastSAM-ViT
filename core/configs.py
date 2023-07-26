@@ -13,7 +13,11 @@ class ModelConfig:
         self.retina_masks: bool = True
         self.imgsz: int = 1024
         self.conf: float = 0.4
-        self.iou:float = 0.5
+        self.iou: float = 0.5
+        self.height: int = 640
+        self.width: int = 480
+        self.num_patch_w: int = 16
+        self.num_patch_h: int = 16
                                                                          
 
 

@@ -11,9 +11,14 @@ class FastSamPredict(nn.Module):
         super().__init__()
         self.model = FastSAM(model_path)
 
+        self.height = model_config.height 
+        self.width = model_config.width
+        self.num_patch_w = model_config.num_patch_w
+        self.num_patch_h = model_config.num_patch_h
+
 
     def forward(self, input):
-        
+        #taking segment mask result from fastsam : results consists of masks: every mask relate to an specific segment and object
         results = self.model(
             input,
             device=train_config.device,
@@ -27,19 +32,19 @@ class FastSamPredict(nn.Module):
         print(masks.size())
 
         bbox_all = self.mask_to_bbox(masks)
-        patch_all = self.bbox_to_patch(bbox_all)
 
-        return patch_all
+        return bbox_all
     
     
     def mask_to_bbox(self, masks):
-
+        #convert segment mask to a bounding box
         bbox_sam = torch.zeros((masks.size()[0],4))
         for count,mask in enumerate(masks):
             indexs = torch.where(mask==1)
+            #finding bbox coordinate : top-left(x1,y1)  bottom-right(x2,y2)
             x1, y1, x2, y2 = min(indexs[1]), min(indexs[0]), max(indexs[1]), max(indexs[0])
             #remove small segments
-            if x1 > m:
+            if torch.sum(mask) > (self.height/self.num_patch_h)*(self.width/self.num_patch_w):
                 bbox_sam[count,:] = torch.tensor([x1, y1, x2, y2])
 
         #combine segments
@@ -47,10 +52,7 @@ class FastSamPredict(nn.Module):
             bbox_all = combine
 
         return bbox_all
-    
-    def bbox_to_patch(self, bbox_all):
 
-        return patch_all
     
 
 class VitFeature(nn.Module):
@@ -67,22 +69,25 @@ class VitFeature(nn.Module):
 class FastSAMVit(nn.Module):
     def __init__(self, vit_model_path):
         super().__init__()
+        self.height = model_config.height 
+        self.width = model_config.width
+
         self.vit_model = VitFeature(vit_model_path)
-        
         self.linear = nn.Linear(4,80)
 
-    def forward(self, input, patch_all):
+    def forward(self, input, bbox_all):
+        #freeze vit model without last layer of classification
         with torch.no_grad():
             feature_vectors = self.vit_model(input)
 
-        for patch in patch_all:
-            patch_features = self.ROI_align(feature_vectors, patch)
-            output = self.linear(patch_features)
+        for bbox in bbox_all:
+            bbox_features = self.ROI_align(feature_vectors, bbox)
+            output = self.linear(bbox_features)
 
         return output
     
-    def ROI_align(self, feature_vectors, patch):
+    def ROI_align(self, feature_vectors, bbox):
+        x1, y1, x2, y2 = bbox[0]/self.width, bbox[0]/self.height, bbox[1]/self.width, bbox[1]/self.height
 
-
-        return patch_features
+        return bbox_features
 
